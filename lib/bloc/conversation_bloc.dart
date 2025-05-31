@@ -1,54 +1,38 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../data/mock_data.dart';
-import '../models/conversation.dart';
-import '../models/message.dart';
-import 'conversation_event.dart';
-import 'conversation_state.dart';
+import 'package:chat_app_flutter/bloc/conversation_event.dart';
+import 'package:chat_app_flutter/bloc/conversation_state.dart';
+import 'package:chat_app_flutter/models/conversation.dart';
+import 'package:chat_app_flutter/models/message.dart';
+import 'package:chat_app_flutter/data/mock_data.dart';
 
 class ConversationBloc extends Bloc<ConversationEvent, ConversationState> {
+  List<Conversation> _conversations = [];
+  List<Message> _messages = [];
+
   ConversationBloc() : super(ConversationInitial()) {
     on<LoadConversations>(_onLoadConversations);
     on<SendMessage>(_onSendMessage);
     on<ReceiveMessage>(_onReceiveMessage);
     on<LoadMessages>(_onLoadMessages);
+    on<CreateConversation>(_onCreateConversation);
   }
 
-  void _onLoadConversations(
-    LoadConversations event,
-    Emitter<ConversationState> emit,
-  ) async {
-    emit(ConversationLoading());
+  void _onLoadConversations(LoadConversations event, Emitter<ConversationState> emit) {
     try {
-      // Simuler un délai de chargement
-      await Future.delayed(const Duration(seconds: 1));
-      emit(ConversationLoaded(conversations: MockData.mockConversations));
+      emit(ConversationLoading());
+      _conversations = MockData.mockConversations;
+      _messages = MockData.mockMessages;
+      emit(ConversationLoaded(
+        conversations: _conversations,
+        messages: _messages,
+      ));
     } catch (e) {
       emit(ConversationError(message: e.toString()));
     }
   }
 
-  void _onLoadMessages(
-    LoadMessages event,
-    Emitter<ConversationState> emit,
-  ) async {
-    if (state is ConversationLoaded) {
-      final currentState = state as ConversationLoaded;
-      final messages = MockData.mockMessages
-          .where((message) => message.conversationId == event.conversationId)
-          .toList();
-      
-      emit(currentState.copyWith(messages: messages));
-    }
-  }
-
-  void _onSendMessage(
-    SendMessage event,
-    Emitter<ConversationState> emit,
-  ) async {
-    if (state is ConversationLoaded) {
-      final currentState = state as ConversationLoaded;
-      
-      // Créer le nouveau message
+  void _onSendMessage(SendMessage event, Emitter<ConversationState> emit) {
+    try {
       final newMessage = Message(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         conversationId: event.conversationId,
@@ -57,60 +41,124 @@ class ConversationBloc extends Bloc<ConversationEvent, ConversationState> {
         timestamp: DateTime.now(),
       );
 
-      // Ajouter le message à la liste
-      final updatedMessages = [...currentState.messages, newMessage];
-      
-      // Mettre à jour la conversation
-      final updatedConversations = currentState.conversations.map((conv) {
+      _messages = [..._messages, newMessage];
+
+      // Update last message in conversation
+      _conversations = _conversations.map((conv) {
         if (conv.id == event.conversationId) {
-          return conv.copyWith(
+          return Conversation(
+            id: conv.id,
+            contactName: conv.contactName,
             lastMessage: event.content,
             timestamp: DateTime.now(),
+            unreadCount: conv.unreadCount,
+            isOnline: conv.isOnline,
           );
         }
         return conv;
       }).toList();
 
-      emit(currentState.copyWith(
-        conversations: updatedConversations,
-        messages: updatedMessages,
+      emit(ConversationLoaded(
+        conversations: _conversations,
+        messages: _messages,
+        selectedConversationId: event.conversationId,
       ));
 
-      // Simuler une réponse automatique après 2 secondes
-      await Future.delayed(const Duration(seconds: 2));
-      add(ReceiveMessage(message: Message(
-        id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
-        conversationId: event.conversationId,
-        content: 'Message reçu automatiquement !',
-        isMe: false,
-        timestamp: DateTime.now(),
-      )));
+      // Simulate receiving a response after 2 seconds
+      Future.delayed(Duration(seconds: 2), () {
+        add(ReceiveMessage(
+          conversationId: event.conversationId,
+          content: "Merci pour votre message !",
+        ));
+      });
+    } catch (e) {
+      emit(ConversationError(message: e.toString()));
     }
   }
 
-  void _onReceiveMessage(
-    ReceiveMessage event,
-    Emitter<ConversationState> emit,
-  ) {
-    if (state is ConversationLoaded) {
-      final currentState = state as ConversationLoaded;
-      final updatedMessages = [...currentState.messages, event.message];
-      
-      final updatedConversations = currentState.conversations.map((conv) {
-        if (conv.id == event.message.conversationId) {
-          return conv.copyWith(
-            lastMessage: event.message.content,
-            timestamp: event.message.timestamp,
+  void _onReceiveMessage(ReceiveMessage event, Emitter<ConversationState> emit) {
+    try {
+      final newMessage = Message(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        conversationId: event.conversationId,
+        content: event.content,
+        isMe: false,
+        timestamp: DateTime.now(),
+      );
+
+      _messages = [..._messages, newMessage];
+
+      // Update conversation with new message and increment unread count
+      _conversations = _conversations.map((conv) {
+        if (conv.id == event.conversationId) {
+          return Conversation(
+            id: conv.id,
+            contactName: conv.contactName,
+            lastMessage: event.content,
+            timestamp: DateTime.now(),
             unreadCount: conv.unreadCount + 1,
+            isOnline: conv.isOnline,
           );
         }
         return conv;
       }).toList();
 
-      emit(currentState.copyWith(
-        conversations: updatedConversations,
-        messages: updatedMessages,
+      emit(ConversationLoaded(
+        conversations: _conversations,
+        messages: _messages,
+        selectedConversationId: event.conversationId,
       ));
+    } catch (e) {
+      emit(ConversationError(message: e.toString()));
+    }
+  }
+
+  void _onLoadMessages(LoadMessages event, Emitter<ConversationState> emit) {
+    try {
+      // Mark messages as read by resetting unread count
+      _conversations = _conversations.map((conv) {
+        if (conv.id == event.conversationId) {
+          return Conversation(
+            id: conv.id,
+            contactName: conv.contactName,
+            lastMessage: conv.lastMessage,
+            timestamp: conv.timestamp,
+            unreadCount: 0,
+            isOnline: conv.isOnline,
+          );
+        }
+        return conv;
+      }).toList();
+
+      emit(ConversationLoaded(
+        conversations: _conversations,
+        messages: _messages,
+        selectedConversationId: event.conversationId,
+      ));
+    } catch (e) {
+      emit(ConversationError(message: e.toString()));
+    }
+  }
+
+  void _onCreateConversation(CreateConversation event, Emitter<ConversationState> emit) {
+    try {
+      final newConversation = Conversation(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        contactName: event.contactName,
+        lastMessage: "Nouvelle conversation",
+        timestamp: DateTime.now(),
+        unreadCount: 0,
+        isOnline: true,
+      );
+
+      _conversations = [newConversation, ..._conversations];
+
+      emit(ConversationLoaded(
+        conversations: _conversations,
+        messages: _messages,
+      ));
+    } catch (e) {
+      emit(ConversationError(message: e.toString()));
     }
   }
 }

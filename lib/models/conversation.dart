@@ -6,6 +6,7 @@ class Conversation extends Equatable {
   final String lastMessage;
   final DateTime timestamp;
   final int unreadCount;
+  final bool isOnline;
 
   const Conversation({
     required this.id,
@@ -13,24 +14,9 @@ class Conversation extends Equatable {
     required this.lastMessage,
     required this.timestamp,
     this.unreadCount = 0,
+    this.isOnline = false,
   });
 
-  Conversation copyWith({
-    String? id,
-    String? contactName,
-    String? lastMessage,
-    DateTime? timestamp,
-    int? unreadCount,
-  }) {
-    return Conversation(
-      id: id ?? this.id,
-      contactName: contactName ?? this.contactName,
-      lastMessage: lastMessage ?? this.lastMessage,
-      timestamp: timestamp ?? this.timestamp,
-      unreadCount: unreadCount ?? this.unreadCount,
-    );
-  }
-
   @override
-  List<Object> get props => [id, contactName, lastMessage, timestamp, unreadCount];
+  List<Object?> get props => [id, contactName, lastMessage, timestamp, unreadCount, isOnline];
 }

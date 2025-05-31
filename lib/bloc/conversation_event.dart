@@ -1,11 +1,10 @@
 import 'package:equatable/equatable.dart';
-import '../models/message.dart';
 
 abstract class ConversationEvent extends Equatable {
   const ConversationEvent();
 
   @override
-  List<Object> get props => [];
+  List<Object?> get props => [];
 }
 
 class LoadConversations extends ConversationEvent {}
@@ -20,16 +19,20 @@ class SendMessage extends ConversationEvent {
   });
 
   @override
-  List<Object> get props => [conversationId, content];
+  List<Object?> get props => [conversationId, content];
 }
 
 class ReceiveMessage extends ConversationEvent {
-  final Message message;
+  final String conversationId;
+  final String content;
 
-  const ReceiveMessage({required this.message});
+  const ReceiveMessage({
+    required this.conversationId,
+    required this.content,
+  });
 
   @override
-  List<Object> get props => [message];
+  List<Object?> get props => [conversationId, content];
 }
 
 class LoadMessages extends ConversationEvent {
@@ -38,5 +41,14 @@ class LoadMessages extends ConversationEvent {
   const LoadMessages({required this.conversationId});
 
   @override
-  List<Object> get props => [conversationId];
+  List<Object?> get props => [conversationId];
+}
+
+class CreateConversation extends ConversationEvent {
+  final String contactName;
+
+  const CreateConversation({required this.contactName});
+
+  @override
+  List<Object?> get props => [contactName];
 }
